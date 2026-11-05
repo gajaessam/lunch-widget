@@ -19,6 +19,7 @@ permissions:
 
 env:
   RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+    PYTHONUTF8: '1'
 
 jobs:
   test:
