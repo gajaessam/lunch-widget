@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 
 import knowledge_cards as cards
 
-APP_VERSION = "1.6.0"
+APP_VERSION = "1.6.1"
 
 ALLERGY_MAP = {
     '1': '난류', '2': '우유', '3': '메밀', '4': '땅콩', '5': '대두',

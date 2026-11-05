@@ -98,7 +98,7 @@ NEIS_SCHOOL_URL = "https://open.neis.go.kr/hub/schoolInfo"
 DEFAULT_SCHOOL_NAME = "서일중학교"
 DEFAULT_OFFICE_CODE = "B10"      # 서울시교육청
 DEFAULT_SCHOOL_CODE = "7091433"  # 서일중학교
-DEFAULT_FEEDBACK_CONTACT = "가정재연쌤"  # 예전 서일중 설정의 하단 문구
+FEEDBACK_CONTACT = "가정재연쌤"  # 개발자. 모든 학교에서 같다.
 
 # 업데이트 안내: 프로그램은 스스로를 교체하지 않고 새 버전만 알려 준다.
 GITHUB_RELEASE_BASE = "https://github.com/gajaessam/lunch-widget/releases/latest/download"
@@ -174,7 +174,6 @@ class LunchWidget:
         self.departure_interval_minutes = 5
         self.classes_per_slot = 2
         self.school_configured = False
-        self.feedback_contact = ""
 
         # 학급 설정 (기본 2학년 3반, 서일중 11반)
         self.my_grade = 2
@@ -1059,15 +1058,13 @@ class LunchWidget:
         self.resize_grip.bind("<B1-Motion>", self.do_resize)
 
     def _refresh_footer_status(self):
-        """하단 줄에 저장된 메뉴 표시 여부 또는 문의처를 보여 준다."""
+        """하단 줄에 저장된 메뉴 안내 또는 개발자 문의처를 보여 준다."""
         if not hasattr(self, "footer_feedback_label"):
             return
         if self._showing_cached_meal:
             text = "저장된 메뉴 표시 중 · 인터넷 연결을 확인해 주세요"
-        elif self.feedback_contact:
-            text = f"오류·개선 의견 → {self.feedback_contact}"
         else:
-            text = f"급식 위젯 v{APP_VERSION}"
+            text = f"오류·개선 의견 → {FEEDBACK_CONTACT}"
         self.footer_feedback_label.config(text=text)
 
     def start_drag(self, event):
@@ -1716,13 +1713,6 @@ class LunchWidget:
         )
         if per_slot is None:
             return
-        contact = simpledialog.askstring(
-            "문의처 (선택)",
-            "위젯 아래에 표시할 오류·개선 의견 문의처를 입력하세요.\n비워 두면 표시하지 않습니다.",
-            parent=self.root, initialvalue=self.feedback_contact
-        )
-        if contact is not None:
-            self.feedback_contact = contact.strip()
 
         self.school_name = school_name
         self.office_code = office_code
@@ -2452,10 +2442,6 @@ class LunchWidget:
                             self.departure_interval_minutes = interval
                         if isinstance(per_slot, int) and 1 <= per_slot <= 20:
                             self.classes_per_slot = per_slot
-                    self.feedback_contact = str(cfg.get(
-                        "feedback_contact",
-                        DEFAULT_FEEDBACK_CONTACT if self.school_code == DEFAULT_SCHOOL_CODE else ""
-                    )).strip()
                     if not (
                         isinstance(x, int) and isinstance(y, int)
                         and self._position_is_visible(x, y, self.width)
@@ -2548,7 +2534,6 @@ class LunchWidget:
             "start_with_windows": self.start_with_windows,
             "my_grade": self.my_grade,
             "my_class": self.my_class,
-            "feedback_contact": self.feedback_contact,
             "order_rules": self.order_rules,
             "school": {
                 "name": self.school_name,
