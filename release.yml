@@ -1,0 +1,68 @@
+name: Release
+
+# GitHub 웹의 Actions 탭에서 Run workflow를 누르고 버전을 입력해 실행한다.
+# 입력한 태그로 설치 파일이 든 zip을 만들어 Releases에 게시한다.
+# v1.6.0-rc1처럼 하이픈이 있으면 시험판으로 게시되어 공개 내려받기 링크가 바뀌지 않는다.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '게시할 버전 (예: v1.6.0-rc1 또는 v1.6.0)'
+        required: true
+  push:
+    branches: [main, 'release/**']
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: write
+
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests
+
+  release:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check version
+        run: python packaging/prepare_release.py check --tag "$env:RELEASE_TAG"
+
+      - name: Build program
+        run: |
+          pip install pyinstaller==6.22.3
+          python packaging/prepare_release.py version-info
+          pyinstaller --noconfirm lunch_widget.spec
+
+      - name: Build installer
+        run: |
+          choco install innosetup --no-progress -y
+          $version = python packaging/prepare_release.py print-version
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" packaging\installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package
+        run: python packaging/prepare_release.py package
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $flags = @('--title', $env:RELEASE_TAG, '--generate-notes', '--target', "${{ github.sha }}")
+          if ($env:RELEASE_TAG.Contains('-')) { $flags += '--prerelease' } else { $flags += '--latest' }
+          gh release create $env:RELEASE_TAG dist/release/lunch-widget.zip dist/release/latest.json @flags
