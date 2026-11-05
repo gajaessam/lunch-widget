@@ -14,6 +14,7 @@ import os
 import re
 import ctypes
 from ctypes import wintypes
+import urllib.error
 import urllib.request
 import urllib.parse
 import calendar
@@ -139,75 +140,6 @@ COLORS = {
     "button_shadow": "#7E8088",
     "tip": "#FDF8C9",
 }
-
-# 날짜별로 하나씩 보여 주는, 검토된 영양소 지식
-NUTRITION_CARDS = [
-    {"answer": "탄수화물과 단백질은 1 g당 4 kcal, 지방은 1 g당 9 kcal의 에너지를 낸다."},
-    {"answer": "칼슘은 뼈·치아 형성뿐 아니라 신경·근육 기능과 정상적인 혈액 응고에 필요하다."},
-    {"answer": "비타민 D는 칼슘과 인의 흡수·이용, 그리고 뼈의 형성과 유지에 필요하다."},
-    {"answer": "철은 체내 산소 운반과 혈액 생성, 에너지 생성에 필요한 무기질이다."},
-    {"answer": "비타민 C는 결합조직 형성에 필요하며, 철의 흡수를 돕고 항산화 작용을 한다."},
-    {"answer": "아연은 정상적인 면역 기능과 세포 분열에 필요한 무기질이다."},
-    {"answer": "요오드는 갑상선 호르몬 합성, 에너지 생성, 신경 발달에 필요하다."},
-    {"answer": "마그네슘은 에너지 이용과 신경·근육 기능 유지에 필요하다."},
-    {"answer": "비오틴은 지방·탄수화물·단백질 대사와 에너지 생성에 필요하다."},
-    {"answer": "엽산은 세포와 혈액 생성에 필요하며, 정상적인 엽산 대사에는 비타민 B12가 필요하다."},
-    {"answer": "구리는 철의 운반과 이용에 필요하며, 세포를 유해산소로부터 보호하는 데 관여한다."},
-    {"answer": "셀레늄은 항산화 효소의 구성 성분으로, 세포를 유해산소로부터 보호하는 데 필요하다."},
-    {"answer": "단백질은 몸을 구성하는 아미노산의 공급원이다. 한 가지 식품보다 여러 식품군을 함께 먹는 것이 좋다."},
-    {"answer": "식이섬유는 사람의 소화효소로 잘 분해되지 않는 성분이며, 곡류·채소·콩류에 많다."},
-
-    # 비타민과 무기질의 기본 기능
-    {"answer": "비타민 A는 어두운 곳에서 시각 적응에 필요하다."},
-    {"answer": "비타민 A는 피부와 점막을 만들고 기능을 유지하는 데 필요하다."},
-    {"answer": "비타민 E는 유해산소로부터 세포를 보호하는 데 필요하다."},
-    {"answer": "비타민 K는 정상적인 혈액 응고에 필요하다."},
-    {"answer": "비타민 K는 뼈의 구성에 필요하다."},
-    {"answer": "티아민(비타민 B1)은 탄수화물과 에너지 대사에 필요하다."},
-    {"answer": "리보플라빈(비타민 B2)은 체내 에너지 생성에 필요하다."},
-    {"answer": "나이아신은 체내 에너지 생성에 필요하다."},
-    {"answer": "판토텐산은 지방·탄수화물·단백질 대사와 에너지 생성에 필요하다."},
-    {"answer": "비타민 B6는 단백질과 아미노산 이용에 필요하다."},
-    {"answer": "인은 뼈와 치아 형성, 에너지 생성에 필요한 무기질이다."},
-    {"answer": "망간은 뼈 형성과 에너지 이용에 필요한 무기질이다."},
-    {"answer": "칼륨은 체내 물과 전해질의 균형을 유지하는 데 필요하다."},
-    {"answer": "비타민은 열량을 내지는 않지만, 몸의 여러 기능이 원활히 이루어지도록 돕는다."},
-    {"answer": "무기질은 칼슘·철처럼 몸의 구조와 기능을 돕지만 열량을 내지는 않는다."},
-    {"answer": "비타민 B군과 C는 수용성, 비타민 A·D·E·K는 지용성 비타민으로 분류된다."},
-    {"answer": "필수 아미노산은 몸에서 충분히 만들 수 없어 식품으로 섭취해야 한다."},
-    {"answer": "단백질은 근육과 결합조직 등 신체 조직을 이루는 성분이다."},
-    {"answer": "단백질은 효소·호르몬·항체를 만드는 데도 필요하다."},
-
-    # 식품 속 영양소와 식품군
-    {"answer": "쌀·빵·면·감자에는 탄수화물이 들어 있어 몸의 에너지원이 될 수 있다."},
-    {"answer": "고기·생선·달걀·콩류·우유는 식사에서 단백질을 얻을 수 있는 식품이다."},
-    {"answer": "우유·요거트·치즈는 칼슘을 얻을 수 있는 식품이다."},
-    {"answer": "콩류는 식물성 단백질과 식이섬유를 함께 얻을 수 있는 식품이다."},
-    {"answer": "채소와 과일에는 비타민·무기질·식이섬유가 들어 있는 경우가 많다."},
-    {"answer": "당근·시금치 같은 식품의 일부 카로티노이드는 몸에서 비타민 A로 바뀔 수 있다."},
-    {"answer": "비타민 A의 한 형태는 생선·달걀·유제품에도 들어 있다."},
-    {"answer": "요오드는 생선·해산물·유제품 등에서 얻을 수 있다."},
-    {"answer": "마그네슘은 녹색 잎채소·곡류·콩류·견과류 등에 들어 있다."},
-    {"answer": "살코기·생선·달걀노른자는 철을 얻을 수 있는 식품의 예다."},
-    {"answer": "살코기·조개류·간은 아연을 얻을 수 있는 식품의 예다."},
-    {"answer": "식이섬유는 채소·과일·잡곡·콩류·해조류 등에 풍부하다."},
-    {"answer": "견과류와 씨앗류에는 지방이 들어 있어, 적은 양도 열량이 높을 수 있다."},
-    {"answer": "물은 영양소 운반과 체온 조절, 노폐물 배출에 관여한다."},
-    {"answer": "지방은 비타민 A·D·E·K처럼 지용성 비타민의 흡수에 필요하다."},
-    {"answer": "통곡물은 곡물의 겨·배아·배유를 함께 사용한 곡물이다."},
-    {"answer": "곡류·채소·과일·고기·생선·달걀·콩류·우유·유제품을 골고루 먹으면 다양한 영양소를 얻기 쉽다."},
-    {"answer": "균형 잡힌 식사는 필요한 영양소가 골고루 들어 있고 양이 알맞은 식사다."},
-
-    # 영양표시를 읽는 방법
-    {"answer": "영양성분표는 1회 제공량 기준인지 100 g(또는 100 mL) 기준인지 먼저 확인한다."},
-    {"answer": "한 포장에 여러 번의 제공량이 있으면, 실제 먹는 양에 따라 섭취하는 영양소 양도 달라진다."},
-    {"answer": "영양성분표에는 열량·탄수화물·당류·단백질·지방·나트륨 등이 표시된다."},
-    {"answer": "나트륨은 소금의 구성 성분 중 하나이며, 영양성분표에서는 보통 mg 단위로 표시된다."},
-    {"answer": "1 g은 1,000 mg이다. 영양성분표의 단위를 함께 보면 양을 비교하기 쉽다."},
-    {"answer": "같은 식품도 계절·토양·수확·처리 방법에 따라 영양성분 함량이 달라질 수 있다."},
-    {"answer": "하루에 필요한 영양소의 양은 나이·성별·성장 단계·활동량에 따라 달라질 수 있다."},
-    {"answer": "청소년기는 몸이 빠르게 성장하고 변화하는 시기라, 여러 식품군을 골고루 먹는 식사가 중요하다."},
-]
 
 class LunchWidget:
     def __init__(self, root):
@@ -1102,12 +1034,12 @@ class LunchWidget:
             meal_title_row, "오늘로", bg=COLORS["yellow"], font_size=10, padx=8, pady=2
         )
         self.today_button.bind("<Button-1>", lambda e: self.go_today())
+        # 열량과 탄단지 비율은 수치만 작게 보여 주고 평가는 붙이지 않는다.
         self.calorie_label = tk.Label(
-            meal_title_row, text="", font=(UI_FONT, 10, "bold"),
-            fg=COLORS["coral"], bg=COLORS["soft_lilac"]
+            meal_title_row, text="", font=(UI_FONT, 9, "bold"), justify=tk.RIGHT,
+            fg=COLORS["muted"], bg=COLORS["soft_lilac"]
         )
-        # 열량은 API 값으로 계속 계산하지만 목표 화면의 단정한 제목 줄을 위해
-        # 보드에는 표시하지 않는다.
+        self.calorie_label.pack(side=tk.RIGHT, padx=(4, 10))
         self.menu_header_line = tk.Frame(self.content_frame, height=2, bg=COLORS["border"])
         self.menu_header_line.pack(fill=tk.X)
         # 한 줄짜리 Text에 메뉴와 알레르기를 이어 쓰면 길이에 따라 서로
@@ -1562,6 +1494,24 @@ class LunchWidget:
         )
         class_button.pack(fill=tk.X, pady=(8, 0))
         class_button.bind("<Button-1>", lambda e: open_class())
+
+        update_text = f"업데이트 정보 · 현재 v{APP_VERSION}"
+        update_button = tk.Label(
+            container, text=update_text, font=(UI_FONT, 10, "bold"),
+            fg=COLORS["text"], bg=COLORS["surface"], cursor="hand2", anchor="w",
+            padx=12, pady=10, highlightbackground=COLORS["border"], highlightthickness=1
+        )
+        update_button.pack(fill=tk.X, pady=(8, 0))
+
+        def restore_update_button():
+            if update_button.winfo_exists():
+                update_button.configure(text=update_text)
+
+        def start_update_check(event=None):
+            update_button.configure(text="업데이트 확인 중...")
+            self.check_update_manually(settings, restore_update_button)
+
+        update_button.bind("<Button-1>", start_update_check)
         close_button = tk.Label(
             container, text="닫기", font=(UI_FONT, 9), fg=COLORS["muted"],
             bg=COLORS["background"], cursor="hand2", padx=4, pady=8
@@ -1874,7 +1824,9 @@ class LunchWidget:
             self.today_button.pack_forget()
         else:
             self.menu_title_label.config(text=f"{viewed.month}월 {viewed.day}일 급식 메뉴")
-            self.today_button.pack(side=tk.RIGHT, padx=(0, self._scaled_px(10)))
+            self.today_button.pack(
+                side=tk.RIGHT, padx=(0, self._scaled_px(10)), before=self.calorie_label
+            )
 
     def load_all_data_async(self):
         # 요청을 시작한 시점의 날짜를 고정한다. 사용자가 날짜를 빠르게
@@ -1973,7 +1925,11 @@ class LunchWidget:
             if not meal:
                 continue
             key = core.cache_key(office_code, school_code, ymd)
-            entry = {"DDISH_NM": meal.get("DDISH_NM", ""), "CAL_INFO": meal.get("CAL_INFO", "")}
+            entry = {
+                "DDISH_NM": meal.get("DDISH_NM", ""),
+                "CAL_INFO": meal.get("CAL_INFO", ""),
+                "NTR_INFO": meal.get("NTR_INFO", ""),
+            }
             if self.meal_cache.get(key) != entry:
                 self.meal_cache[key] = entry
                 changed = True
@@ -2287,9 +2243,7 @@ class LunchWidget:
             else:
                 self._show_menu_status("아직 급식 식단이 등록되지 않았습니다")
         else:
-            cal_info = meal_data.get("CAL_INFO", "")
-            if cal_info:
-                self.calorie_label.config(text=f"열량 {cal_info}")
+            self.calorie_label.config(text=core.meal_summary(meal_data))
 
             menu_items = self._meal_items(meal_data)
             if menu_items:
@@ -2310,17 +2264,23 @@ class LunchWidget:
                 items.append(item)
         return items
 
-    def _select_exploration_card(self, meal_data):
-        """날짜마다 달라지는, 검토된 영양소 지식 한 줄을 고른다."""
-        day_key = self.current_date.year * 372 + self.current_date.month * 31 + self.current_date.day
-        return NUTRITION_CARDS[day_key % len(NUTRITION_CARDS)]
+    def _previous_cached_meal(self):
+        """같은 지식이 연달아 나오지 않도록 직전 급식일의 저장된 식단을 찾는다."""
+        for days_back in range(1, 4):  # 월요일이면 금요일까지 본다
+            day = self.current_date - timedelta(days=days_back)
+            key = core.cache_key(self.office_code, self.school_code, day.strftime("%Y%m%d"))
+            if key in self.meal_cache:
+                return self.meal_cache[key]
+        return None
 
     def update_exploration_card(self, meal_data=None):
-        """날짜에 맞는 오프라인 영양소 지식 한 줄을 보드에 표시한다."""
-        self.current_exploration = self._select_exploration_card(meal_data)
-        card = self.current_exploration
+        """그날 식단과 연결되는 지식 한 줄을 보드에 표시한다."""
+        text = core.select_knowledge(meal_data, self.current_date, self._previous_cached_meal())
+        if self.current_date.date() != datetime.now().date():
+            text = text.replace("오늘 급식", "이날 급식")
+        self.current_exploration = text
         self.quest_category_label.config(text="오늘의 가정 지식 한 스푼")
-        self.quest_question_label.config(text=card["answer"])
+        self.quest_question_label.config(text=text)
 
     def compute_current_order(self, grade, on_date=None):
         """on_date(기본: 화면에서 보는 날짜)의 반별 출발 순서를 돌려준다."""
@@ -2662,19 +2622,58 @@ class LunchWidget:
             return False
 
     # ─── 업데이트 안내 ───
+    @staticmethod
+    def _fetch_latest_version():
+        req = urllib.request.Request(UPDATE_INFO_URL, headers=HTTP_HEADERS)
+        with urllib.request.urlopen(req, timeout=8) as response:
+            return json.loads(response.read().decode("utf-8")).get("version", "")
+
+    def check_update_manually(self, parent, on_done):
+        """사용자가 누르면 바로 확인하고, 최신이어도 결과를 알려 준다."""
+        def worker():
+            try:
+                latest = self._fetch_latest_version()
+            except urllib.error.HTTPError as error:
+                # 404는 아직 게시된 정식 버전이 없다는 뜻이다.
+                latest = "" if error.code == 404 else None
+                if latest is None:
+                    log.warning("업데이트 확인 실패", exc_info=True)
+            except Exception:
+                log.warning("업데이트 확인 실패", exc_info=True)
+                latest = None
+            self.root.after(0, lambda: finish(latest))
+
+        def finish(latest):
+            on_done()
+            target = parent if parent.winfo_exists() else self.root
+            if latest is None:
+                messagebox.showwarning(
+                    "업데이트 정보",
+                    "최신 버전을 확인하지 못했습니다.\n인터넷 연결을 확인해 주세요.",
+                    parent=target,
+                )
+            elif core.is_newer_version(latest):
+                self.prompt_update(latest, target)
+            else:
+                messagebox.showinfo(
+                    "업데이트 정보",
+                    f"현재 최신 버전입니다.\n\n현재 버전: v{APP_VERSION}",
+                    parent=target,
+                )
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def check_for_update(self):
         """새 버전이 있으면 알려 준다. 프로그램을 스스로 교체하지는 않는다."""
         try:
-            req = urllib.request.Request(UPDATE_INFO_URL, headers=HTTP_HEADERS)
-            with urllib.request.urlopen(req, timeout=8) as response:
-                latest = json.loads(response.read().decode("utf-8")).get("version", "")
+            latest = self._fetch_latest_version()
             if core.is_newer_version(latest) and latest != self._update_prompted:
                 self._update_prompted = latest
                 self.root.after(0, lambda: self.prompt_update(latest))
         except Exception:
             log.info("업데이트 확인 실패", exc_info=True)
 
-    def prompt_update(self, new_version):
+    def prompt_update(self, new_version, parent=None):
         if messagebox.askyesno(
             "업데이트 알림",
             f"새 버전이 있습니다.\n\n"
@@ -2682,7 +2681,7 @@ class LunchWidget:
             f"최신 버전: v{new_version}\n\n"
             f"내려받기를 시작할까요?\n"
             f"받은 zip 파일 안의 설치 프로그램을 실행하면 설정은 그대로 유지됩니다.",
-            parent=self.root,
+            parent=parent or self.root,
         ):
             webbrowser.open(DOWNLOAD_URL)
 

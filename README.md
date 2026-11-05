@@ -8,6 +8,7 @@
 |---|---|
 | `widget.pyw` | 화면과 프로그램 동작 |
 | `lunch_core.py` | 순서·알레르기 등 계산, 버전(`APP_VERSION`) |
+| `knowledge_cards.py` | 가정 지식 카드 문구와 연결 단어 |
 | `tests/` | 자동 테스트 |
 | `lunch_widget.spec` | 프로그램 빌드 설정 |
 | `packaging/` | 설치 프로그램, 사용법, 배포 도구 |

@@ -6,6 +6,8 @@ Tkinter를 쓰지 않으므로 tests/test_core.py에서 자동으로 검사할 �
 import re
 from datetime import date, datetime, timedelta
 
+import knowledge_cards as cards
+
 APP_VERSION = "1.6.0"
 
 ALLERGY_MAP = {
@@ -229,6 +231,119 @@ def departure_minutes(start_time, rank, classes_per_slot, interval_minutes):
     except (AttributeError, TypeError, ValueError):
         start = 12 * 60 + 30
     return start + ((rank - 1) // max(1, classes_per_slot)) * max(1, interval_minutes)
+
+
+def _card_matches(card, menu_names):
+    excluded = card.get("exclude", ())
+    for name in menu_names:
+        if any(word in name for word in excluded):
+            continue
+        if any(word in name for word in card.get("keywords", ())):
+            return True
+        if any(name.endswith(word) for word in card.get("endings", ())):
+            return True
+    return False
+
+
+def menu_names(meal):
+    """식단에서 알레르기 번호를 뺀 메뉴 이름만 꺼낸다."""
+    if not meal:
+        return []
+    names = (parse_menu_item(item)[0] for item in str(meal.get("DDISH_NM", "")).split("<br/>"))
+    return [name for name in names if name]
+
+
+def parse_nutrition(meal):
+    """NEIS 영양 정보를 {이름: 값 문자열}로 만든다. 값이 0이거나 비어 있으면 뺀다."""
+    if not meal:
+        return {}
+    values = {}
+    for item in str(meal.get("NTR_INFO", "")).split("<br/>"):
+        name, _, value = item.partition(":")
+        match = re.search(r"\d+(?:\.\d+)?", value)
+        if match and float(match.group()) > 0:
+            values[name.strip()] = match.group()
+    calories = re.search(r"\d+(?:\.\d+)?", str(meal.get("CAL_INFO", "")))
+    if calories and float(calories.group()) > 0:
+        values["열량"] = calories.group()
+    return values
+
+
+def macro_ratio(meal):
+    """열량 기준 탄수화물:단백질:지방 비율을 합이 100인 정수로 돌려준다. 없으면 None."""
+    values = parse_nutrition(meal)
+    try:
+        energy = [
+            float(values["탄수화물(g)"]) * 4,
+            float(values["단백질(g)"]) * 4,
+            float(values["지방(g)"]) * 9,
+        ]
+    except KeyError:
+        return None
+    total = sum(energy)
+    shares = [value / total * 100 for value in energy]
+    ratio = [int(share) for share in shares]
+    # 반올림으로 합이 99나 101이 되지 않게, 소수점이 큰 쪽부터 1씩 더한다.
+    order = sorted(range(3), key=lambda index: shares[index] - ratio[index], reverse=True)
+    for index in order[:100 - sum(ratio)]:
+        ratio[index] += 1
+    return tuple(ratio)
+
+
+def meal_summary(meal):
+    """메뉴 제목 줄에 보일 열량과 탄단지 비율. 평가 없이 수치만 보여 준다."""
+    lines = []
+    calories = parse_nutrition(meal).get("열량")
+    if calories:
+        lines.append(f"{int(float(calories) + 0.5)} kcal")
+    ratio = macro_ratio(meal)
+    if ratio:
+        lines.append("탄단지 {}:{}:{}".format(*ratio))
+    return "\n".join(lines)
+
+
+def _knowledge_tiers(meal):
+    """오늘 식단에 맞는 문장을 (메뉴, 음식 종류, 영양 정보) 단계별로 모은다."""
+    names = menu_names(meal)
+    values = parse_nutrition(meal)
+    return (
+        [card["text"] for card in cards.MENU_CARDS if _card_matches(card, names)],
+        [card["text"] for card in cards.CATEGORY_CARDS if _card_matches(card, names)],
+        [
+            card["text"].format(value=values[card["key"]])
+            for card in cards.NUTRITION_TEMPLATES if card["key"] in values
+        ],
+    )
+
+
+def _pick(pool, day, avoid=None):
+    """날짜마다 돌아가며 고른다. 같은 날에는 언제 다시 그려도 같은 문장이다."""
+    choice = pool[day % len(pool)]
+    if choice == avoid and len(pool) > 1:
+        choice = pool[(day + 1) % len(pool)]
+    return choice
+
+
+def select_knowledge(meal, on_date, previous_meal=None):
+    """오늘 보여 줄 지식 한 줄을 고른다.
+
+    메뉴 → 음식 종류 → 영양 정보 → 일반 지식 순으로 찾아 빈칸이 생기지 않게
+    한다. 김치나 국처럼 거의 매일 나오는 메뉴가 있어도 실제 영양 수치를 볼 수
+    있도록, 사흘에 하루는 영양 정보를 먼저 쓴다.
+    previous_meal: 직전 급식일의 식단. 같은 문장이 연달아 나오지 않게 한다.
+    """
+    day = _as_date(on_date).toordinal()
+    menu, category, nutrition = _knowledge_tiers(meal)
+    tiers = [nutrition, menu, category] if day % 3 == 0 else [menu, category, nutrition]
+    avoid = None
+    if previous_meal:
+        avoid = select_knowledge(previous_meal, _as_date(on_date) - timedelta(days=1))
+    for pool in tiers:
+        if pool:
+            # 영양 우선인 날은 사흘 간격이라, 그대로 나누면 일부 카드만 반복된다.
+            turn = day // 3 if pool is nutrition and day % 3 == 0 else day
+            return _pick(pool, turn, avoid)
+    return _pick(cards.GENERAL_CARDS, day, avoid)
 
 
 def version_key(version):
